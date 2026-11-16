@@ -1,0 +1,13 @@
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+const { Schema, model } = mongoose;
+const userS = new Schema({ name: String, email: { type: String, unique: true, required: true }, password: { type: String, required: true }, role: { type: String, default: 'user' }, wishlist: [{ type: Schema.Types.ObjectId, ref: 'Product' }] }, { timestamps: true });
+userS.pre('save', async function (n) { if (this.isModified('password')) this.password = await bcrypt.hash(this.password, 10); n(); });
+export const User = model('User', userS);
+export const Category = model('Category', new Schema({ name: String, slug: { type: String, unique: true } }));
+export const Product = model('Product', new Schema({ name: { type: String, required: true }, description: String, price: { type: Number, required: true }, salePrice: Number, category: String, images: [String], sizes: [String], colors: [String], stock: { type: Number, default: 0 }, featured: Boolean, rating: { type: Number, default: 0 }, numReviews: { type: Number, default: 0 } }, { timestamps: true }));
+export const Review = model('Review', new Schema({ product: { type: Schema.Types.ObjectId, ref: 'Product' }, user: { type: Schema.Types.ObjectId, ref: 'User' }, name: String, rating: Number, comment: String }, { timestamps: true }));
+export const Coupon = model('Coupon', new Schema({ code: { type: String, unique: true }, percent: Number, active: { type: Boolean, default: true } }));
+export const Newsletter = model('Newsletter', new Schema({ email: { type: String, unique: true } }, { timestamps: true }));
+export const Banner = model('Banner', new Schema({ title: String, image: String, link: String }));
+export const Order = model('Order', new Schema({ user: { type: Schema.Types.ObjectId, ref: 'User' }, items: [{ product: { type: Schema.Types.ObjectId, ref: 'Product' }, name: String, image: String, price: Number, qty: Number, size: String, color: String }], shipping: { name: String, phone: String, address: String, city: String }, total: Number, status: { type: String, default: 'Pending', enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] }, payment: { type: String, default: 'COD' } }, { timestamps: true }));

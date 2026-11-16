@@ -1,0 +1,12 @@
+import { Router } from 'express'; import { Product, Review, Category } from '../models/index.js'; import { protect } from '../middleware/auth.js';
+const r = Router();
+r.get('/', async (q, s) => { const { search, category, min, max, size, color, sort, page = 1, limit = 12, featured } = q.query; const f = {};
+  if (search) f.name = new RegExp(search, 'i'); if (category) f.category = category; if (size) f.sizes = size; if (color) f.colors = color; if (featured) f.featured = true;
+  if (min || max) f.price = { ...(min && { $gte: +min }), ...(max && { $lte: +max }) };
+  const so = { newest: { createdAt: -1 }, low: { price: 1 }, high: { price: -1 } }[sort] || { createdAt: -1 };
+  const total = await Product.countDocuments(f); const products = await Product.find(f).sort(so).skip((page - 1) * limit).limit(+limit);
+  s.json({ products, total, pages: Math.ceil(total / limit) }); });
+r.get('/categories', async (_, s) => s.json(await Category.find()));
+r.get('/:id', async (q, s) => { const p = await Product.findById(q.params.id).catch(() => null); if (!p) return s.status(404).json({ message: 'Not found' }); s.json({ product: p, reviews: await Review.find({ product: p._id }).sort('-createdAt'), related: await Product.find({ category: p.category, _id: { $ne: p._id } }).limit(4) }); });
+r.post('/:id/reviews', protect, async (q, s) => { await Review.create({ product: q.params.id, user: q.user._id, name: q.user.name, rating: q.body.rating, comment: q.body.comment }); const all = await Review.find({ product: q.params.id }); await Product.findByIdAndUpdate(q.params.id, { rating: all.reduce((a, b) => a + b.rating, 0) / all.length, numReviews: all.length }); s.status(201).json({ ok: true }); });
+export default r;
